@@ -1,5 +1,6 @@
 CURL="curl -sS"
 XSLTPROC="xsltproc --nonet"
+XSLTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"/../lib
 
 rawurlencode() {
 	local string="${1}"
