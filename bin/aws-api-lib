@@ -1,3 +1,6 @@
+CURL="curl -sS"
+XSLTPROC="xsltproc --nonet"
+
 rawurlencode() {
 	local string="${1}"
 	local strlen=${#string}
@@ -78,9 +81,9 @@ aws_v2_uri() {
 ec2() {
 	echo EC2 Query: "$5" 1>&2
 	local Host="ec2.amazonaws.com"
-	curl -v -X $1 https://$Host/?$(aws_v2_uri $1 $Host "$2" "$3" "$4" "" "$5")
+	$CURL -X $1 https://$Host/?$(aws_v2_uri $1 $Host "$2" "$3" "$4" "" "$5")
 	# Why doesn't this work?
-	#aws_v2_uri POST $Host "$2" "$3" "$4" "" "$5" | curl -v -X POST https://$Host/ --data-binary @-
+	#aws_v2_uri POST $Host "$2" "$3" "$4" "" "$5" | $CURL -X POST https://$Host/ --data-binary @-
 	echo
 }
 

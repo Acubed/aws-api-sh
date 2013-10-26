@@ -1,6 +1,6 @@
 #!/bin/sh
 
-source aws-sig-lib
+source aws-api-lib
 
 VOLUME=
 DESCRIPTION=
