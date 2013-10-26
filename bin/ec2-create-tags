@@ -1,0 +1,46 @@
+#!/bin/sh
+
+source aws-sig-lib
+
+BlockDeviceMappings=()
+
+while (( "$#" )); do
+	case $1 in
+		-O|--aws-access-key) AWS_ACCESS_KEY="$2"; shift ;;
+		-W|--aws-secret-key) AWS_SECRET_KEY="$2"; shift ;;
+		-a|--architecture) Architecture="$2"; shift ;;
+		-b|--block-device-mapping) BlockDeviceMappings+=("$2"); shift ;;
+		-d|--description) Description="$2"; shift ;;
+		-n|--name) Name="$2"; shift ;;
+		# -s|--snapshot)
+		--kernel) KernelId="$2"; shift ;;
+		--ramdisk) RamdiskId="$2"; shift ;;
+		--root-device-name) RootDeviceName="$2"; shift ;;
+		-*)
+			echo "Unknown argument $1" 1>&2
+			exit ;;
+		*) ImageLocation="$1" ;;
+	esac
+	shift
+done
+
+if [ -z "$VOLUME" ]; then
+	echo "No volume provided" 1>&2
+	exit 1
+fi
+
+check_creds
+
+QUERY=""
+if [ -n "$Architecture" ]; then QUERY+="&Architecture=$(rawurlencode $Architecture)"; fi
+if [ -n "$Description" ]; then QUERY+="&Description=$(rawurlencode $Description)"; fi
+if [ -z "$Name" ]; then echo 'Name is required' 1>&2; exit 1; fi
+if [ -n "$KernelId" ]; then QUERY+="&KernelId=$(rawurlencode $KernelId)"; fi
+if [ -n "$RamdiskId" ]; then QUERY+="&RamdiskId=$(rawurlencode $RamdiskId)"; fi
+if [ -n "$RootDeviceName" ]; then QUERY+="&RootDeviceName=$(rawurlencode $RootDeviceName)"; fi
+
+for q in "$BlockDeviceMappings[@]"; do
+	D=
+done
+
+ec2 GET RegisterImage $AWS_ACCESS_KEY $AWS_SECRET_KEY "$QUERY"

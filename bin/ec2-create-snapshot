@@ -1,0 +1,41 @@
+#!/bin/sh
+
+source aws-sig-lib
+
+VOLUME=
+DESCRIPTION=
+
+while (( "$#" )); do
+	case $1 in
+		-O|--aws-access-key) AWS_ACCESS_KEY="$2"; shift ;;
+		-W|--aws-secret-key) AWS_SECRET_KEY="$2"; shift ;;
+		-d) DESCRIPTION="$2"; shift ;;
+		--*)
+			echo "Unknown argument $1" 1>&2
+			exit ;;
+		*) VOLUME="$1" ;;
+	esac
+	shift
+done
+
+
+if [ -z "$VOLUME" ]; then
+	echo "No volume provided" 1>&2
+	exit 1
+fi
+
+check_creds
+
+Query="Description=$(rawurlencode $DESCRIPTION)&VolumeId=$(rawurlencode $VOLUME)"
+R=$(ec2 GET CreateSnapshot $AWS_ACCESS_KEY $AWS_SECRET_KEY "$Query")
+echo "$R"
+
+# SnapshotId
+# VolumeId
+# Status
+# StartTime
+# Progress
+# OwnerId
+# VolumeSize
+# Description
+

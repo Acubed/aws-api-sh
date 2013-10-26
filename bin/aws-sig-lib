@@ -1,0 +1,103 @@
+rawurlencode() {
+	local string="${1}"
+	local strlen=${#string}
+	local encoded=""
+
+	for (( pos=0 ; pos<strlen ; pos++ )); do
+		c=${string:$pos:1}
+		case "$c" in
+		[-_.~a-zA-Z0-9] )
+			o="${c}" ;;
+		* )
+			printf -v o '%%%02X' "'$c"
+		esac
+		encoded+="${o}"
+	done
+	echo "${encoded}"
+}
+
+hmac_sha256() {
+	rawurlencode $(echo -n "$1" | openssl dgst -sha256 -binary -hmac "$2" -binary | base64)
+}
+
+aws_sig2_sort() {
+	echo "$1" | tr '&' '\n' | sort | tr '\n' '&' | sed -e 's/&$//' | sed -e 's/^&*//'
+}
+
+aws_sig2_sign() {
+	local STR=""
+	# Method (GET, POST, etc)
+	STR+="$1"$'\n'
+	STR+="$2"$'\n'
+	STR+="$3"$'\n'
+	STR+="$4"
+	hmac_sha256 "$STR" "$5"
+}
+
+
+aws_sig4_sign() {
+	kSecret=$(printf "AWS4$1" | xxd -p -c 256)
+	kDate=$(printf "$2" | openssl dgst -binary -sha256 -mac HMAC -macopt hexkey:$kSecret | xxd -p -c 256)
+	kRegion=$(printf "$3" | openssl dgst -binary -sha256 -mac HMAC -macopt hexkey:$kDate | xxd -p -c 256)
+	kService=$(printf "$4" | openssl dgst -binary -sha256 -mac HMAC -macopt hexkey:$kRegion | xxd -p -c 256)
+	kSigning=$(printf "aws4_request" | openssl dgst -binary -sha256 -mac HMAC -macopt hexkey:$kService | xxd -p -c 256)
+	printf "$5" | openssl dgst -binary -hex -sha256 -mac HMAC -macopt hexkey:$kSigning | sed 's/^.* //'
+}
+
+aws_v2_date() {
+	local Timestamp=$(date -u --iso-8601=seconds)
+	Timestamp="${Timestamp%+0000}"Z
+	echo "$Timestamp"
+}
+
+aws_v2_uri() {
+	local Method="$1"
+	local Host="$2"
+	local Action="$3"
+	local AWSAccessKeyId="$4"
+	local SecretKey="$5"
+	if [ -z "$SecretKey" ]; then echo 'No secret key provided' 1>&2; return; fi
+	local Timestamp="$6"
+	if [ -z "$Timestamp" ]; then Timestamp=$(aws_v2_date); fi
+	local Query="$7"
+	local SignatureMethod=HmacSHA256
+	local SignatureVersion=2
+	local Version=2013-06-15
+	#local Version=2009-03-31
+	local Querystring=$(aws_sig2_sort "${Query}&AWSAccessKeyId=${AWSAccessKeyId}&Action=${Action}&SignatureMethod=${SignatureMethod}&SignatureVersion=${SignatureVersion}&Timestamp=$(rawurlencode $Timestamp)&Version=${Version}")
+	local Signature=$(aws_sig2_sign "$Method" "$Host" "/" "$Querystring" "$SecretKey")
+	#echo AWSAccessKeyId: $AWSAccessKeyId 1>&2
+	#echo SecretKey: $SecretKey 1>&2
+	#echo Timestamp: $Timestamp 1>&2
+	#echo Querystring: $Querystring 1>&2
+	#echo Sig: $Signature 1>&2
+	echo "$Method ${Querystring}&Signature=${Signature}" 1>&2
+	echo "${Querystring}&Signature=${Signature}"
+}
+
+ec2() {
+	echo EC2 Query: "$5" 1>&2
+	local Host="ec2.amazonaws.com"
+	curl -v -X $1 https://$Host/?$(aws_v2_uri $1 $Host "$2" "$3" "$4" "" "$5")
+	# Why doesn't this work?
+	#aws_v2_uri POST $Host "$2" "$3" "$4" "" "$5" | curl -v -X POST https://$Host/ --data-binary @-
+	echo
+}
+
+ec2_DescribeVolumeStatus() {
+	ec2 GET DescribeVolumeStatus "$1" "$2"
+}
+
+#aws_v2_uri GET elasticmapreduce.amazonaws.com DescribeJobFlows "AKIAIOSFODNN7EXAMPLE" "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY" "2011-10-03T15:19:30" ""
+#echo 'https://elasticmapreduce.amazonaws.com?AWSAccessKeyId=AKIAIOSFODNN7EXAMPLE&Action=DescribeJobFlows&SignatureMethod=HmacSHA256&SignatureVersion=2&Timestamp=2011-10-03T15%3A19%3A30&Version=2009-03-31&Signature=i91nKc4PWAt0JJIdXwz9HxZCJDdiy6cf%2FMj6vPxyYIs%3D'
+
+check_creds() {
+	if [ -z "$AWS_ACCESS_KEY" ]; then
+		echo "No AWS_ACCESS_KEY provided" 1>&2
+		exit 2
+	fi
+	if [ -z "$AWS_SECRET_KEY" ]; then
+		echo "No AWS_SECRET_KEY provided" 1>&2
+		exit 2
+	fi
+}
