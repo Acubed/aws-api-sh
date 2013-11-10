@@ -2,45 +2,42 @@
 
 source aws-api-lib
 
-BlockDeviceMappings=()
+RESOURCES=""
+TAGS=()
 
 while (( "$#" )); do
 	case $1 in
 		-O|--aws-access-key) AWS_ACCESS_KEY="$2"; shift ;;
 		-W|--aws-secret-key) AWS_SECRET_KEY="$2"; shift ;;
-		-a|--architecture) Architecture="$2"; shift ;;
-		-b|--block-device-mapping) BlockDeviceMappings+=("$2"); shift ;;
-		-d|--description) Description="$2"; shift ;;
-		-n|--name) Name="$2"; shift ;;
-		# -s|--snapshot)
-		--kernel) KernelId="$2"; shift ;;
-		--ramdisk) RamdiskId="$2"; shift ;;
-		--root-device-name) RootDeviceName="$2"; shift ;;
+		--tag) TAGS+=("$2"); shift ;;
 		-*)
 			echo "Unknown argument $1" 1>&2
+			;;
+		*)
+			RESOURCES="$RESOURCES $1"
 			exit ;;
-		*) ImageLocation="$1" ;;
 	esac
 	shift
 done
 
-if [ -z "$VOLUME" ]; then
-	echo "No volume provided" 1>&2
+
+if [[ ( -z "$SIZE" ) && ( -z "$SNAPSHOT" ) ]]; then
+	echo "No size or snapshot provided" 1>&2
 	exit 1
 fi
 
 check_creds
 
-QUERY=""
-if [ -n "$Architecture" ]; then QUERY+="&Architecture=$(rawurlencode $Architecture)"; fi
-if [ -n "$Description" ]; then QUERY+="&Description=$(rawurlencode $Description)"; fi
-if [ -z "$Name" ]; then echo 'Name is required' 1>&2; exit 1; fi
-if [ -n "$KernelId" ]; then QUERY+="&KernelId=$(rawurlencode $KernelId)"; fi
-if [ -n "$RamdiskId" ]; then QUERY+="&RamdiskId=$(rawurlencode $RamdiskId)"; fi
-if [ -n "$RootDeviceName" ]; then QUERY+="&RootDeviceName=$(rawurlencode $RootDeviceName)"; fi
+Query=""
 
-for q in "$BlockDeviceMappings[@]"; do
-	D=
+I=0
+for R in $RESOURCES; do
+	Query="$Query&ResourceId=$R"
 done
 
-ec2 GET RegisterImage $AWS_ACCESS_KEY $AWS_SECRET_KEY "$QUERY"
+I=0
+for R in "${TAGS[@]}"; do
+	Query="$Query&Tag.$I.Key=${R}&Tag.$I.Value=${R}"
+done
+
+ec2 POST CreateTags $AWS_ACCESS_KEY $AWS_SECRET_KEY "$Query"

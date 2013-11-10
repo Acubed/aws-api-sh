@@ -2,29 +2,71 @@
 
 source aws-api-lib
 
-QUERY=""
+MAPPINGS=()
 
 while (( "$#" )); do
 	case $1 in
 		-O|--aws-access-key) AWS_ACCESS_KEY="$2"; shift ;;
 		-W|--aws-secret-key) AWS_SECRET_KEY="$2"; shift ;;
-		-d) DESCRIPTION="$2"; shift ;;
-		--*)
+		-n|--name) Name="$2"; shift ;;
+		-d|--description) Description="$2"; shift ;;
+		-a|--architecture) Architecture="$2"; shift ;;
+		--kernel) KernelId="$2"; shift ;;
+		--ramdisk) RamdiskId="$2"; shift ;;
+		--root-device-name) RootDeviceName="$2"; shift ;;
+		-b|--block-device-mapping) MAPPINGS+=("$2"); shift ;;
+		-s|--snapshot) SNAPSHOT="$2"; shift ;;
+		-*)
 			echo "Unknown argument $1" 1>&2
 			exit ;;
-		*) VOLUME="$1" ;;
+		*) MANIFEST="$1" ;;
 	esac
 	shift
 done
 
-if [ -z "$VOLUME" ]; then
-	echo "No volume provided" 1>&2
-	exit 1
-fi
-
 check_creds
 
+if [ -z "$Name" ]; then echo "Name is required" 1>&2 ; exit 1; fi
 
+Query="Name=$(rawurlencode $Name)"
+if [ -n "$Description" ]; then Query="$Query&Description=$(rawurlencode $Description)"; fi
+if [ -n "$Architecture" ]; then Query="$Query&Architecture=$(rawurlencode $Architecture)"; fi
+if [ -n "$KernelId" ]; then Query="$Query&KernelId=$(rawurlencode $KernelId)"; fi
+if [ -n "$RamdiskId" ]; then Query="$Query&RamdiskId=$(rawurlencode $RamdiskId)"; fi
+if [ -n "$RootDeviceName" ]; then Query="$Query&RootDeviceName=$(rawurlencode $RootDeviceName)"; fi
 
+I=0
+for M in "${MAPPINGS[@]}"; do
+	((I++))
+	# devicename=blockdevice where blockdevice is one of:
+	#   none
+	#   ephemeral[0..3]
+	#   [snapshot-id]:[volume-size]:[true|false]:[standard|io1[:iops]]
+	N="${M%%=*}"
+	V="${M#*=}"
+	Query+="&BlockDeviceMapping.$I.DeviceName=$(rawurlencode $N)"
+	case "$V" in
+		none) Query+="&BlockDeviceMapping.$I.NoDevice=true" ;;
+		ephe*) Query+="&BlockDeviceMapping.$I.VirtualName=$V" ;;
+		snap*|:*)
+			V+="::::"
+			SnapshotId="${V%%:*}"
+			V="${V#*:}"
+			if [ -n "$SnapshotId" ]; then Query+="&BlockDeviceMapping.$I.Ebs.SnapshotId=$SnapshotId"; fi
+			VolumeSize="${V%%:*}"
+			V="${V#*:}"
+			if [ -n "$VolumeSize" ]; then Query+="&BlockDeviceMapping.$I.Ebs.VolumeSize=$VolumeSize"; fi
+			DeleteOnTermination="${V%%:*}"
+			V="${V#*:}"
+			if [ -n "$DeleteOnTermination" ]; then Query+="&BlockDeviceMapping.$I.Ebs.DeleteOnTermination=$DeleteOnTermination"; fi
+			VolumeType="${V%%:*}"
+			V="${V#*:}"
+			if [ -n "$VolumeType" ]; then Query+="&BlockDeviceMapping.$I.Ebs.VolumeType=$VolumeType"; fi
+			Iops="${V%%:*}"
+			V="${V#*:}"
+			if [ -n "$Iops" ]; then Query+="&BlockDeviceMapping.$I.Ebs.Iops=$Iops"; fi
+			;;
+	esac
+done
 
-ec2 GET CreateSnapshot $AWS_ACCESS_KEY $AWS_SECRET_KEY "$QUERY"
+ec2 POST RegisterImage $AWS_ACCESS_KEY $AWS_SECRET_KEY "$Query" | $XSLTPROC $XSLTDIR/RegisterImageResponse.xslt -
