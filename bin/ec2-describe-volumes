@@ -1,0 +1,33 @@
+#!/bin/sh
+
+source aws-api-lib
+
+VOLUMES=
+
+while (( "$#" )); do
+	case $1 in
+		-O|--aws-access-key) AWS_ACCESS_KEY="$2"; shift ;;
+		-W|--aws-secret-key) AWS_SECRET_KEY="$2"; shift ;;
+		--*)
+			echo "Unknown argument $1" 1>&2
+			exit ;;
+		*) VOLUMES="$VOLUMES $1" ;;
+	esac
+	shift
+done
+
+if [ -z "$VOLUMES" ]; then
+	echo "No volume provided" 1>&2
+	exit 1
+fi
+
+check_creds
+
+Query=""
+
+I=0
+for V in $VOLUMES; do
+	((I++))
+	Query="$Query&VolumeId.$I=$V"
+done
+ec2 POST DescribeVolumes $AWS_ACCESS_KEY $AWS_SECRET_KEY "$Query" | xsltproc --nonet $XSLTDIR/DescribeVolumesResponse.xslt -

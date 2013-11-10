@@ -1,0 +1,43 @@
+#!/bin/sh
+
+source aws-api-lib
+
+SIZE=
+
+while (( "$#" )); do
+	case $1 in
+		-O|--aws-access-key) AWS_ACCESS_KEY="$2"; shift ;;
+		-W|--aws-secret-key) AWS_SECRET_KEY="$2"; shift ;;
+		-s|--size) SIZE="$2"; shift ;;
+		--snapshot) SNAPSHOT="$2"; shift ;;
+		-z|--availability-zone) AVAILABILITY_ZONE="$2"; shift ;;
+		-t|--type) TYPE="$2"; shift ;;
+		-i|--iops) IOPS="$2"; shift ;;
+		*)
+			echo "Unknown argument $1" 1>&2
+			exit ;;
+	esac
+	shift
+done
+
+
+if [[ ( -z "$SIZE" ) && ( -z "$SNAPSHOT" ) ]]; then
+	echo "No size or snapshot provided" 1>&2
+	exit 1
+fi
+
+check_creds
+
+Query=""
+if [ -n "$SIZE" ]; then Query="$Query&Size=$(rawurlencode $SIZE)"; fi
+if [ -n "$SNAPSHOT" ]; then Query="$Query&SnapshotId=$(rawurlencode $SNAPSHOT)"; fi
+if [ -n "$AVAILABILITY_ZONE" ]; then Query="$Query&AvailabilityZone=$(rawurlencode $AVAILABILITY_ZONE)"; fi
+if [ -n "$TYPE" ]; then Query="$Query&VolumeType=$(rawurlencode $TYPE)"; fi
+if [ -n "$IOPS" ]; then Query="$Query&Iops=$(rawurlencode $IOPS)"; fi
+
+ec2 GET CreateVolume $AWS_ACCESS_KEY $AWS_SECRET_KEY "$Query" | $XSLTPROC $XSLTDIR/CreateVolumeResponse.xslt -
+echo "$R"
+
+# VolumeId	Size	SnapshotId	AvailabilityZone	Status	CreateTime	ComittedIOps
+# VOLUME	vol-48a2220b	6		us-east-1a	creating	2013-10-26T14:59:49+0000
+

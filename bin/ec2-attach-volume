@@ -1,0 +1,31 @@
+#!/bin/sh
+
+source aws-api-lib
+
+VOLUME=
+INSTANCE=
+DEVICE=
+
+while (( "$#" )); do
+	case $1 in
+		-O|--aws-access-key) AWS_ACCESS_KEY="$2"; shift ;;
+		-W|--aws-secret-key) AWS_SECRET_KEY="$2"; shift ;;
+		-i|--instance) INSTANCE="$2"; shift ;;
+		-d|--device) DEVICE="$2"; shift ;;
+		--*)
+			echo "Unknown argument $1" 1>&2
+			exit ;;
+		*) VOLUME="$1" ;;
+	esac
+	shift
+done
+
+if [ -z "$VOLUME" ]; then
+	echo "No volume provided" 1>&2
+	exit 1
+fi
+
+check_creds
+
+Query="VolumeId=$(rawurlencode $VOLUME)&InstanceId=$(rawurlencode $INSTANCE)&Device=$(rawurlencode $DEVICE)"
+ec2 POST AttachVolume $AWS_ACCESS_KEY $AWS_SECRET_KEY "$Query" | xsltproc --nonet $XSLTDIR/AttachVolumeResponse.xslt -
