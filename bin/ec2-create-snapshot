@@ -26,16 +26,6 @@ fi
 
 check_creds
 
-Query="Description=$(rawurlencode $DESCRIPTION)&VolumeId=$(rawurlencode $VOLUME)"
-R=$(ec2 GET CreateSnapshot $AWS_ACCESS_KEY $AWS_SECRET_KEY "$Query")
-echo "$R"
-
-# SnapshotId
-# VolumeId
-# Status
-# StartTime
-# Progress
-# OwnerId
-# VolumeSize
-# Description
-
+Query="VolumeId=$(rawurlencode $VOLUME)"
+if [ -n "$DESCRIPTION" ]; then Query="$Query&Description=$(rawurlencode $DESCRIPTION)"; fi
+ec2 GET CreateSnapshot $AWS_ACCESS_KEY $AWS_SECRET_KEY "$Query" | $XSLTPROC $XSLTDIR/CreateSnapshotResponse.xslt -

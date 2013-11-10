@@ -28,4 +28,4 @@ fi
 check_creds
 
 Query="VolumeId=$(rawurlencode $VOLUME)&InstanceId=$(rawurlencode $INSTANCE)&Device=$(rawurlencode $DEVICE)"
-ec2 POST AttachVolume $AWS_ACCESS_KEY $AWS_SECRET_KEY "$Query" | xsltproc --nonet $XSLTDIR/AttachVolumeResponse.xslt -
+ec2 POST AttachVolume $AWS_ACCESS_KEY $AWS_SECRET_KEY "$Query" | $XSLTPROC $XSLTDIR/AttachVolumeResponse.xslt -
