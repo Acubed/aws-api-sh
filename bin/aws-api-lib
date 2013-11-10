@@ -75,12 +75,12 @@ aws_v2_uri() {
 	#echo Timestamp: $Timestamp 1>&2
 	#echo Querystring: $Querystring 1>&2
 	#echo Sig: $Signature 1>&2
-	echo "$Method ${Querystring}&Signature=${Signature}" 1>&2
+	#echo "$Method ${Querystring}&Signature=${Signature}" 1>&2
 	echo "${Querystring}&Signature=${Signature}"
 }
 
 ec2() {
-	echo EC2 Query: "$5" 1>&2
+	#echo EC2 Query: "$5" 1>&2
 	local Host="ec2.amazonaws.com"
 	$CURL -X $1 https://$Host/?$(aws_v2_uri $1 $Host "$2" "$3" "$4" "" "$5")
 	# Why doesn't this work?
