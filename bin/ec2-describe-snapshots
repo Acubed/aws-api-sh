@@ -2,6 +2,8 @@
 
 source aws-api-lib
 
+Snapshots=
+
 while (( "$#" )); do
 	case $1 in
 		-O|--aws-access-key) AWS_ACCESS_KEY="$2"; shift ;;
@@ -9,7 +11,7 @@ while (( "$#" )); do
 		--*)
 			echo "Unknown argument $1" 1>&2
 			exit ;;
-		*) VOLUME="$1" ;;
+		*) Snapshots+=" $1" ;;
 	esac
 	shift
 done
@@ -17,7 +19,11 @@ done
 check_creds
 
 Query=""
-#R=$(ec2 GET DescribeSnapshots $AWS_ACCESS_KEY $AWS_SECRET_KEY "$Query")
-#echo "$R"
+
+I=0
+for V in $Snapshots; do
+	((I++))
+	Query="$Query&SnapshotId.$I=$V"
+done
 
 ec2 GET DescribeSnapshots $AWS_ACCESS_KEY $AWS_SECRET_KEY "$Query" | xsltproc --nonet $XSLTDIR/DescribeSnapshotsResponse.xslt -

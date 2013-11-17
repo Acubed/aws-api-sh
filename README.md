@@ -1,1 +1,1 @@
-Amazon EC2 API tools implemented in bash, with help from curl, openssl, and xsltproc
+Amazon EC2 CLI tools implemented in bash, with help from curl, openssl, and xsltproc

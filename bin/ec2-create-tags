@@ -12,16 +12,15 @@ while (( "$#" )); do
 		--tag) TAGS+=("$2"); shift ;;
 		-*)
 			echo "Unknown argument $1" 1>&2
-			;;
+			exit ;;
 		*)
 			RESOURCES="$RESOURCES $1"
-			exit ;;
+			;;
 	esac
 	shift
 done
 
-
-if [[ ( -z "$SIZE" ) && ( -z "$SNAPSHOT" ) ]]; then
+if [[ ( -z "$TAGS[0]" ) && ( -z "$RESOURCES" ) ]]; then
 	echo "No size or snapshot provided" 1>&2
 	exit 1
 fi
@@ -32,12 +31,17 @@ Query=""
 
 I=0
 for R in $RESOURCES; do
-	Query="$Query&ResourceId=$R"
+	((I++))
+	Query+="&ResourceId=$R"
 done
 
 I=0
 for R in "${TAGS[@]}"; do
-	Query="$Query&Tag.$I.Key=${R}&Tag.$I.Value=${R}"
+	((I++))
+	K="${R%%=*}"
+	V="${R#*=}"
+	Query+="&Tag.${I}.Key=${K}&Tag.${I}.Value=${V}"
 done
 
+echo CreateTags:"$Query"
 ec2 POST CreateTags $AWS_ACCESS_KEY $AWS_SECRET_KEY "$Query"

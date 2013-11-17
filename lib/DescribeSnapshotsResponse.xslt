@@ -5,7 +5,9 @@
 	version="1.0"
 >
 	<xsl:output method="text" indent="no" />
+	<xsl:strip-space elements="*"/>
 	<xsl:template match="/"><xsl:apply-templates/></xsl:template>
+	<xsl:template match="/aws:DescribeSnapshotsResponse/aws:requestId"></xsl:template>
 	<xsl:template match="/aws:DescribeSnapshotsResponse/aws:snapshotSet">
 		<xsl:for-each select="aws:item">
 			<xsl:text>SNAPSHOT&#x09;</xsl:text>
